@@ -1,9 +1,11 @@
-// composables/useGoogleMap.ts
 import { ref, onBeforeUnmount, nextTick } from "vue";
 
 export function useGoogleMap(apiKey: string, mapId?: string) {
   const mapRef = ref<HTMLDivElement | null>(null);
   const map = ref<google.maps.Map | null>(null);
+  const directionsService = ref<google.maps.DirectionsService | null>(null);
+  const directionsRenderer = ref<google.maps.DirectionsRenderer | null>(null);
+  const currentRoute = ref<google.maps.DirectionsResult | null>(null);
   // classic Marker type
   const markers = ref<google.maps.Marker[]>([]);
   const currentLocation = ref<google.maps.LatLngLiteral | null>(null);
@@ -45,6 +47,60 @@ export function useGoogleMap(apiKey: string, mapId?: string) {
 
     // set current location if available
     getCurrentLocation();
+    setupDirections();
+  }
+
+  function setupDirections() {
+    if (!map.value) return;
+    directionsService.value = new google.maps.DirectionsService();
+    directionsRenderer.value = new google.maps.DirectionsRenderer({
+      map: map.value,
+      suppressMarkers: true, // kita akan membuat marker start/end sendiri (opsional)
+      preserveViewport: false, // true kalau gak mau peta auto-zoom ke rute
+    });
+  }
+
+  // fungsi hitung rute
+  async function calculateRoute(
+    origin: google.maps.LatLngLiteral,
+    destination: google.maps.LatLngLiteral,
+    travelMode: google.maps.TravelMode = google.maps.TravelMode.DRIVING,
+    waypoints: google.maps.DirectionsWaypoint[] = []
+  ) {
+    if (!directionsService.value || !directionsRenderer.value) {
+      console.warn("Directions belum siap");
+      return null;
+    }
+
+    const request: google.maps.DirectionsRequest = {
+      origin,
+      destination,
+      travelMode,
+      waypoints,
+      optimizeWaypoints: false,
+      provideRouteAlternatives: false,
+    };
+
+    return new Promise<google.maps.DirectionsResult | null>((resolve, reject) => {
+      directionsService.value!.route(request, (result, status) => {
+        if (status === "OK" && result) {
+          currentRoute.value = result;
+          directionsRenderer.value!.setDirections(result);
+          resolve(result);
+        } else {
+          console.warn("Directions request failed:", status);
+          reject(new Error(`Directions failed: ${status}`));
+        }
+      });
+    });
+  }
+
+  // fungsi untuk menghapus rute
+  function clearRoute() {
+    if (directionsRenderer.value) {
+      directionsRenderer.value.set("directions", null);
+    }
+    currentRoute.value = null;
   }
 
   // Accept LatLngLiteral for simplicity
@@ -116,5 +172,8 @@ export function useGoogleMap(apiKey: string, mapId?: string) {
     addMarkerAtCenter,
     clearMarkers,
     centerMap,
+    calculateRoute,
+    clearRoute,
+    currentRoute,
   };
 }
