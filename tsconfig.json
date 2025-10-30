@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "types": ["@types/google.maps"],
+    "strict": true,
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"]
+}
